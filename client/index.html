@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+
+<head>
+  <script src='http://code.jquery.com/jquery-1.7.2.min.js'></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.4.0/socket.io.min.js"
+    integrity="sha512-gfppNkmmwLyyV/BXmzS9uWWbjxe0owp9N3wx9NeGmIHkFOiRM0EMmQte753JyYZd9uzIbjuSqPOvME0SvADXhw=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/react@16/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6.15.0/babel.min.js"></script>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="text/babel">
+    class Notifications extends React.Component {
+      constructor(props) {
+        super(props);
+        this.socket = this.connect();
+        this.state = {
+          notifications: [],
+          notesCount: 0,
+          formData: {
+            newNote: ''
+          }
+        };
+      }
+
+      connect() {
+        var token = "XXXX"
+
+        var url = 'http://localhost:3003/notes'
+        let notes = []
+
+        var socket = io.connect(url, {
+          // reconnectionDelay: 1000, 
+          // reconnection: true,
+          // reconnectionAttempts: 10,
+          transports: ["websocket"],
+          origins: '*:*',
+          // agent: false, 
+          // upgrade: false,
+          // rejectUnauthorized: false,
+          // headers: { 'Authorization': token },
+          query: {
+            authorization: token
+          },
+          withCredentials: true,
+          // extraHeaders: {
+          //   'Authorization': token
+          // },
+          transportOptions: {
+            polling: {
+              extraHeaders: {
+                'Authorization': 'Bearer ' + token
+              }
+            }
+          }
+        });
+
+        console.log('connecting to ', url)
+
+        socket.on("connect", () => {
+          console.log("Successfully connected!");
+
+          console.log("emit");
+          socket.emit("get-notes", {});
+        });
+
+        socket.on("get-notes", (msg) => {
+          this.setState({ notes: msg });
+        });
+        socket.on("notes-count", (msg) => {
+          // console.log(msg)
+          this.setState({ notesCount: msg });
+        });
+        socket.on("exception", (msg) => console.info(msg));
+        socket.on("connect_error", (err) => {
+          console.log(`connect_error due to ${err.message}`);
+        });
+
+        return socket;
+      }
+
+      handleAddNotification = (event, values) => {
+        event.preventDefault();
+        this.socket.emit("add-note", this.state.formData.newNote);
+        this.setState({ formData: { newNote: '' } });
+
+      }
+
+      handleFormChange = (event) => {
+        this.setState({ formData: { newNote: event.target.value } });
+      }
+
+      render() {
+        return (
+          <div>
+
+            <h1>Add note</h1>
+            <form onSubmit={this.handleAddNotification}>
+              <label>
+                Name:
+                <input type="text" value={this.state.formData.newNote} onChange={this.handleFormChange} />
+              </label>
+              <input type="submit" value="Submit" />
+            </form>
+            <h2>Notes: {this.state.notesCount}</h2>
+            <ul>
+
+              {this.state.notes &&
+                this.state.notes.map(i => (
+                  <li>
+                    <span> {i.message}</span><span style={{ fontSize: '0.4em' }}>@{i.date} </span>
+                  </li>)
+                )}
+
+            </ul>
+          </div>
+        )
+      }
+    }
+
+
+
+    ReactDOM.render(<Notifications />, document.getElementById('app'))
+  </script>
+</body>
+
+</html>
